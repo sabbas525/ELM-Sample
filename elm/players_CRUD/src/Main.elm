@@ -6,11 +6,6 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onCheck, onClick, onInput, onSubmit)
 
 
-initPlayer : Int -> Player
-initPlayer id =
-    Player id "" False
-
-
 type alias Player =
     { id : Int
     , name : String
@@ -31,6 +26,11 @@ type Msg
     | DeletePlayer Int
 
 
+initPlayer : Int -> Player
+initPlayer id =
+    Player id "" False
+
+
 init : Model
 init =
     { players = []
@@ -42,21 +42,93 @@ update : Msg -> Model -> Model
 update msg model =
     case msg of
         SetName name ->
-            model
-
+            let
+                updatedNewPlayer = model.newPlayer
+                    |> (\player -> { player | name = name })
+            in
+            { model | newPlayer = updatedNewPlayer }    
+            
         AddPlayer ->
-            model
+            let
+                newId =
+                    case List.head (List.reverse model.players) of
+                        Just lastplayer -> 
+                            lastplayer.id + 1
+
+                        Nothing -> 
+                            0
+                newPlayer =
+                    { id = newId, name = model.newPlayer.name, isActive = False}
+                
+            in
+            { model
+                | players = model.players ++ [ newPlayer ]
+                , newPlayer = initPlayer (newId + 1)
+            }
 
         DeletePlayer id ->
-            model
+            let
+                updatedPlayers =
+                    List.filter (\player -> player.id /= id) model.players
+            in
+            { model | players = updatedPlayers }
 
         ModifyPlayer id status ->
-            model
+            let
+                updatedPlayerstatus =
+                    List.map
+                        (\player ->
+                            if player.id == id then
+                                { player | isActive = status }
+                            else
+                                player
+                        )
+                        model.players
+            in
+            { model | players = updatedPlayerstatus }
 
 
 view : Model -> Html Msg
 view model =
-    h1 [] [ text "Elm Exercise: Players CRUD" ]
+    div []
+        [ h1 [] [ text "elm exercise: players CRUD" ]
+        , Html.form [ id "submit-player", onSubmit AddPlayer ]
+            [ input
+                [ id "input-player"
+                , type_ "text"
+                , placeholder "Enter new player"
+                , value model.newPlayer.name
+                , onInput SetName
+                ]
+                []
+            , button [ id "btn-add", type_ "submit" ] [ text "Add" ]
+            ]
+        , ol [ id "players-list" ]
+            (List.map playerView model.players)
+        ]
+
+
+playerView : Player -> Html Msg
+playerView player =
+        li [ id ("player-" ++ String.fromInt player.id) ]
+            [ div [ class "player-name" ] [ text player.name ]
+            , label [ class "player-status" ]
+                [ input
+                    [ type_ "checkbox"
+                    , class "player-status"
+                    , checked player.isActive
+                    , onCheck (\isActive -> ModifyPlayer player.id isActive)
+                    ]
+                    []
+                , span [ class "checkmark" ] []
+                , text (if player.isActive then "Active" else "Not active")
+                ]
+            , button
+                [ class "btn-delete"
+                , onClick (DeletePlayer player.id)
+                ]
+                [ text "Delete" ]
+            ]
 
 
 main : Program () Model Msg
